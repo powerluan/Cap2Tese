@@ -1,0 +1,1147 @@
+# Importar pacotes
+library(basedosdados)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(scales)
+theme_set(theme_bw())
+
+# Definir o projeto no Google Cloud
+set_billing_id("censo-da-edu-sup")
+
+# Para carregar o dado direto no R
+query = bdplyr("br_inep_censo_educacao_superior.curso")
+df = bd_collect(query)
+
+# Filtrar cursos de graduação presenciais das Universidades Federais, Estaduais e RFEPCT
+df_novo = df %>%
+  select('ano','tipo_organizacao_academica','tipo_organizacao_administrativa',
+         'rede','nome_area_geral','tipo_modalidade_ensino','quantidade_ingressantes',
+         'quantidade_ingressantes_feminino','quantidade_ingressantes_masculino',
+         'quantidade_ingressantes_branca','quantidade_ingressantes_preta',
+         'quantidade_ingressantes_parda','quantidade_ingressantes_amarela',
+         'quantidade_ingressantes_indigena','quantidade_matriculas',
+         'quantidade_matriculas_feminino','quantidade_matriculas_masculino',
+         'quantidade_matriculas_branca','quantidade_matriculas_preta',
+         'quantidade_matriculas_parda','quantidade_matriculas_amarela',
+         'quantidade_matriculas_indigena','quantidade_concluintes',
+         'quantidade_concluintes_feminino','quantidade_concluintes_masculino',
+         'quantidade_concluintes_branca','quantidade_concluintes_preta',
+         'quantidade_concluintes_parda','quantidade_concluintes_amarela',
+         'quantidade_concluintes_indigena','quantidade_ingressantes_reserva_vaga',
+         'quantidade_matriculas_reserva_vaga','quantidade_concluintes_reserva_vaga') %>%
+  filter(tipo_modalidade_ensino == 1, 
+         tipo_organizacao_administrativa == 1 | tipo_organizacao_administrativa == 2, 
+         tipo_organizacao_academica == 1 | tipo_organizacao_academica == 4 | 
+           tipo_organizacao_academica == 5) %>%
+  mutate(tipo_organizacao_academica = as.numeric(tipo_organizacao_academica)) %>%
+  mutate(tipo_organizacao_administrativa = as.numeric(tipo_organizacao_administrativa)) %>%
+  mutate(rede = tipo_organizacao_academica + tipo_organizacao_administrativa) %>%
+  mutate(rede = ifelse(rede == 2, "Universidades Federais",
+                       ifelse(rede == 3, "Universidades Estaduais","RFEPCT")))
+
+# Quantidade de cursos
+df_novo %>%
+  ggplot(mapping=aes(x=ano, fill=rede)) +
+  labs(x="Ano", y="Quantidade de cursos") +
+  geom_bar(position="dodge")
+
+# Carregar banco de dados para Federais, Estaduais e RFEPCT
+df_Federais = df_novo %>%
+  select('ano','tipo_organizacao_academica','tipo_organizacao_administrativa',
+         'rede','nome_area_geral','tipo_modalidade_ensino','quantidade_ingressantes',
+         'quantidade_ingressantes_feminino','quantidade_ingressantes_masculino',
+         'quantidade_ingressantes_branca','quantidade_ingressantes_preta',
+         'quantidade_ingressantes_parda','quantidade_ingressantes_amarela',
+         'quantidade_ingressantes_indigena','quantidade_matriculas',
+         'quantidade_matriculas_feminino','quantidade_matriculas_masculino',
+         'quantidade_matriculas_branca','quantidade_matriculas_preta',
+         'quantidade_matriculas_parda','quantidade_matriculas_amarela',
+         'quantidade_matriculas_indigena','quantidade_concluintes',
+         'quantidade_concluintes_feminino','quantidade_concluintes_masculino',
+         'quantidade_concluintes_branca','quantidade_concluintes_preta',
+         'quantidade_concluintes_parda','quantidade_concluintes_amarela',
+         'quantidade_concluintes_indigena','quantidade_ingressantes_reserva_vaga',
+         'quantidade_matriculas_reserva_vaga','quantidade_concluintes_reserva_vaga') %>%
+  filter(tipo_organizacao_administrativa == 1, tipo_organizacao_academica == 1)
+
+df_Estaduais = df_novo %>%
+  select('ano','tipo_organizacao_academica','tipo_organizacao_administrativa',
+         'rede','nome_area_geral','tipo_modalidade_ensino','quantidade_ingressantes',
+         'quantidade_ingressantes_feminino','quantidade_ingressantes_masculino',
+         'quantidade_ingressantes_branca','quantidade_ingressantes_preta',
+         'quantidade_ingressantes_parda','quantidade_ingressantes_amarela',
+         'quantidade_ingressantes_indigena','quantidade_matriculas',
+         'quantidade_matriculas_feminino','quantidade_matriculas_masculino',
+         'quantidade_matriculas_branca','quantidade_matriculas_preta',
+         'quantidade_matriculas_parda','quantidade_matriculas_amarela',
+         'quantidade_matriculas_indigena','quantidade_concluintes',
+         'quantidade_concluintes_feminino','quantidade_concluintes_masculino',
+         'quantidade_concluintes_branca','quantidade_concluintes_preta',
+         'quantidade_concluintes_parda','quantidade_concluintes_amarela',
+         'quantidade_concluintes_indigena','quantidade_ingressantes_reserva_vaga',
+         'quantidade_matriculas_reserva_vaga','quantidade_concluintes_reserva_vaga') %>%
+  filter(tipo_organizacao_administrativa == 2, tipo_organizacao_academica == 1)
+
+df_RFEPCT = df_novo %>%
+  select('ano','tipo_organizacao_academica','tipo_organizacao_administrativa',
+         'rede','nome_area_geral','tipo_modalidade_ensino','quantidade_ingressantes',
+         'quantidade_ingressantes_feminino','quantidade_ingressantes_masculino',
+         'quantidade_ingressantes_branca','quantidade_ingressantes_preta',
+         'quantidade_ingressantes_parda','quantidade_ingressantes_amarela',
+         'quantidade_ingressantes_indigena','quantidade_matriculas',
+         'quantidade_matriculas_feminino','quantidade_matriculas_masculino',
+         'quantidade_matriculas_branca','quantidade_matriculas_preta',
+         'quantidade_matriculas_parda','quantidade_matriculas_amarela',
+         'quantidade_matriculas_indigena','quantidade_concluintes',
+         'quantidade_concluintes_feminino','quantidade_concluintes_masculino',
+         'quantidade_concluintes_branca','quantidade_concluintes_preta',
+         'quantidade_concluintes_parda','quantidade_concluintes_amarela',
+         'quantidade_concluintes_indigena','quantidade_ingressantes_reserva_vaga',
+         'quantidade_matriculas_reserva_vaga','quantidade_concluintes_reserva_vaga') %>%
+  filter(tipo_organizacao_administrativa == 1, tipo_organizacao_academica == 4 | 
+           tipo_organizacao_academica == 5)
+
+####################### - INGRESSANTES - ##################################
+
+# Quantificar ingressantes separando por Rede
+df_ingressantes = data.frame(
+  Ano = c('2009','2010','2011','2012','2013','2014','2015','2016','2017',
+          '2018','2019','2020','2021'),
+  Quantidade_ingressantes_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_ingressantes)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_ingressantes))
+    ),
+  Quantidade_cursos_Federais = c(
+    length((df_Federais %>% filter(ano == 2009))$ano),
+    length((df_Federais %>% filter(ano == 2010))$ano),
+    length((df_Federais %>% filter(ano == 2011))$ano),
+    length((df_Federais %>% filter(ano == 2012))$ano),
+    length((df_Federais %>% filter(ano == 2013))$ano),
+    length((df_Federais %>% filter(ano == 2014))$ano),
+    length((df_Federais %>% filter(ano == 2015))$ano),
+    length((df_Federais %>% filter(ano == 2016))$ano),
+    length((df_Federais %>% filter(ano == 2017))$ano),
+    length((df_Federais %>% filter(ano == 2018))$ano),
+    length((df_Federais %>% filter(ano == 2019))$ano),
+    length((df_Federais %>% filter(ano == 2020))$ano),
+    length((df_Federais %>% filter(ano == 2021))$ano)
+  ),
+  Quantidade_ingressantes_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_ingressantes)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_ingressantes))
+  ),
+  Quantidade_cursos_Estaduais = c(
+    length((df_Estaduais %>% filter(ano == 2009))$ano),
+    length((df_Estaduais %>% filter(ano == 2010))$ano),
+    length((df_Estaduais %>% filter(ano == 2011))$ano),
+    length((df_Estaduais %>% filter(ano == 2012))$ano),
+    length((df_Estaduais %>% filter(ano == 2013))$ano),
+    length((df_Estaduais %>% filter(ano == 2014))$ano),
+    length((df_Estaduais %>% filter(ano == 2015))$ano),
+    length((df_Estaduais %>% filter(ano == 2016))$ano),
+    length((df_Estaduais %>% filter(ano == 2017))$ano),
+    length((df_Estaduais %>% filter(ano == 2018))$ano),
+    length((df_Estaduais %>% filter(ano == 2019))$ano),
+    length((df_Estaduais %>% filter(ano == 2020))$ano),
+    length((df_Estaduais %>% filter(ano == 2021))$ano)
+  ),
+  Quantidade_ingressantes_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_ingressantes)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_ingressantes))
+  ),
+  Quantidade_cursos_RFEPCT = c(
+    length((df_RFEPCT %>% filter(ano == 2009))$ano),
+    length((df_RFEPCT %>% filter(ano == 2010))$ano),
+    length((df_RFEPCT %>% filter(ano == 2011))$ano),
+    length((df_RFEPCT %>% filter(ano == 2012))$ano),
+    length((df_RFEPCT %>% filter(ano == 2013))$ano),
+    length((df_RFEPCT %>% filter(ano == 2014))$ano),
+    length((df_RFEPCT %>% filter(ano == 2015))$ano),
+    length((df_RFEPCT %>% filter(ano == 2016))$ano),
+    length((df_RFEPCT %>% filter(ano == 2017))$ano),
+    length((df_RFEPCT %>% filter(ano == 2018))$ano),
+    length((df_RFEPCT %>% filter(ano == 2019))$ano),
+    length((df_RFEPCT %>% filter(ano == 2020))$ano),
+    length((df_RFEPCT %>% filter(ano == 2021))$ano)
+  ),
+  Quantidade_ingressantes_TOTAL = c(
+    sum(df_novo %>% filter(ano == 2009) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2010) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2011) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2012) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2013) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2014) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2015) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2016) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2017) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2018) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2019) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2020) %>% select(quantidade_ingressantes)),
+    sum(df_novo %>% filter(ano == 2021) %>% select(quantidade_ingressantes))
+  ),
+  Quantidade_ingressantes_feminino_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_ingressantes_feminino))
+  ),
+  Quantidade_ingressantes_feminino_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_ingressantes_feminino))
+  ),
+  Quantidade_ingressantes_feminino_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_ingressantes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_ingressantes_feminino))
+  ),
+  Quantidade_ingressantes_reserva_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_ingressantes_reserva_vaga))
+  ),
+  Quantidade_ingressantes_reserva_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_ingressantes_reserva_vaga))
+  ),
+  Quantidade_ingressantes_reserva_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_ingressantes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_ingressantes_reserva_vaga))
+  ),
+  Quantidade_ingressantes_nbrancos_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_ingressantes_preta,
+                                                       quantidade_ingressantes_parda,
+                                                       quantidade_ingressantes_amarela,
+                                                       quantidade_ingressantes_indigena))
+  ),
+  Quantidade_ingressantes_nbrancos_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_ingressantes_preta,
+                                                        quantidade_ingressantes_parda,
+                                                        quantidade_ingressantes_amarela,
+                                                        quantidade_ingressantes_indigena))
+  ),
+  Quantidade_ingressantes_nbrancos_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_ingressantes_preta,
+                                                     quantidade_ingressantes_parda,
+                                                     quantidade_ingressantes_amarela,
+                                                     quantidade_ingressantes_indigena))
+  )
+    )
+
+df_ingressantes["Razao_ingressantes_curso_Federais"] = 
+  df_ingressantes$Quantidade_ingressantes_Federais / 
+  df_ingressantes$Quantidade_cursos_Federais
+
+df_ingressantes["Razao_ingressantes_curso_Estaduais"] =
+  df_ingressantes$Quantidade_ingressantes_Estaduais /
+  df_ingressantes$Quantidade_cursos_Estaduais
+
+df_ingressantes["Razao_ingressantes_curso_RFEPCT"] =
+  df_ingressantes$Quantidade_ingressantes_RFEPCT /
+  df_ingressantes$Quantidade_cursos_RFEPCT
+
+df_ingressantes["Proporcao_ingressantes_feminino_Federais"] =
+  df_ingressantes$Quantidade_ingressantes_feminino_Federais /
+  df_ingressantes$Quantidade_ingressantes_Federais
+
+df_ingressantes["Proporcao_ingressantes_feminino_Estaduais"] =
+  df_ingressantes$Quantidade_ingressantes_feminino_Estaduais /
+  df_ingressantes$Quantidade_ingressantes_Estaduais
+
+df_ingressantes["Proporcao_ingressantes_feminino_RFEPCT"] =
+  df_ingressantes$Quantidade_ingressantes_feminino_RFEPCT /
+  df_ingressantes$Quantidade_ingressantes_RFEPCT
+
+df_ingressantes["Proporcao_ingressantes_nbrancos_Federais"] =
+  df_ingressantes$Quantidade_ingressantes_nbrancos_Federais /
+  df_ingressantes$Quantidade_ingressantes_Federais
+
+df_ingressantes["Proporcao_ingressantes_nbrancos_Estaduais"] =
+  df_ingressantes$Quantidade_ingressantes_nbrancos_Estaduais /
+  df_ingressantes$Quantidade_ingressantes_Estaduais
+
+df_ingressantes["Proporcao_ingressantes_nbrancos_RFEPCT"] =
+  df_ingressantes$Quantidade_ingressantes_nbrancos_RFEPCT /
+  df_ingressantes$Quantidade_ingressantes_RFEPCT
+
+df_ingressantes["Proporcao_ingressantes_reserva_Federais"] =
+  df_ingressantes$Quantidade_ingressantes_reserva_Federais /
+  df_ingressantes$Quantidade_ingressantes_Federais
+
+df_ingressantes["Proporcao_ingressantes_reserva_Estaduais"] =
+  df_ingressantes$Quantidade_ingressantes_reserva_Estaduais /
+  df_ingressantes$Quantidade_ingressantes_Estaduais
+
+df_ingressantes["Proporcao_ingressantes_reserva_RFEPCT"] =
+  df_ingressantes$Quantidade_ingressantes_reserva_RFEPCT /
+  df_ingressantes$Quantidade_ingressantes_RFEPCT
+
+# Gráficos
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Quantidade_ingressantes_TOTAL/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Ingressantes Total (em milhares)") +
+  geom_bar(stat="identity", fill="gray") +
+  geom_line()
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Quantidade_ingressantes_Federais/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Ingressantes Universidades Federais (em milhares)") +
+  geom_bar(stat="identity", fill="red") +
+  geom_line()
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Quantidade_ingressantes_Estaduais/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Ingressantes Universidades Estaduais (em milhares)") +
+  geom_bar(stat="identity", fill="green") +
+  geom_line()
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Quantidade_ingressantes_RFEPCT/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Ingressantes RFEPCT (em milhares)") +
+  geom_bar(stat="identity", fill="blue") +
+  geom_line()
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Razao_ingressantes_curso_Federais, group=1)) + 
+  labs(x="Ano", y="Razão Ingressantes por Cursos - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Razao_ingressantes_curso_Estaduais, group=1)) + 
+  labs(x="Ano", y="Razão Ingressantes por Cursos - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Razao_ingressantes_curso_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Razão Ingressantes por Cursos - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_feminino_Federais, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Sexo Feminino - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_feminino_Estaduais, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Sexo Feminino - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_feminino_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Sexo Feminino - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_nbrancos_Federais, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Não Brancos - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_nbrancos_Estaduais, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Não Brancos - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_nbrancos_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Não Brancos - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_reserva_Federais, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Reserva de Vagas - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_reserva_Estaduais, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Reserva de Vagas - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_ingressantes %>%
+  ggplot(aes(x=Ano, y=Proporcao_ingressantes_reserva_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Proporção Ingressantes Reserva de Vagas - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+####################### - CONCLUINTES - ##################################
+
+# Quantificar concluintes separando por Rede
+df_concluintes = data.frame(
+  Ano = c('2009','2010','2011','2012','2013','2014','2015','2016','2017',
+          '2018','2019','2020','2021'),
+  Quantidade_concluintes_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_concluintes)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_concluintes))
+  ),
+  Quantidade_cursos_Federais = c(
+    length((df_Federais %>% filter(ano == 2009))$ano),
+    length((df_Federais %>% filter(ano == 2010))$ano),
+    length((df_Federais %>% filter(ano == 2011))$ano),
+    length((df_Federais %>% filter(ano == 2012))$ano),
+    length((df_Federais %>% filter(ano == 2013))$ano),
+    length((df_Federais %>% filter(ano == 2014))$ano),
+    length((df_Federais %>% filter(ano == 2015))$ano),
+    length((df_Federais %>% filter(ano == 2016))$ano),
+    length((df_Federais %>% filter(ano == 2017))$ano),
+    length((df_Federais %>% filter(ano == 2018))$ano),
+    length((df_Federais %>% filter(ano == 2019))$ano),
+    length((df_Federais %>% filter(ano == 2020))$ano),
+    length((df_Federais %>% filter(ano == 2021))$ano)
+  ),
+  Quantidade_concluintes_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_concluintes)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_concluintes))
+  ),
+  Quantidade_cursos_Estaduais = c(
+    length((df_Estaduais %>% filter(ano == 2009))$ano),
+    length((df_Estaduais %>% filter(ano == 2010))$ano),
+    length((df_Estaduais %>% filter(ano == 2011))$ano),
+    length((df_Estaduais %>% filter(ano == 2012))$ano),
+    length((df_Estaduais %>% filter(ano == 2013))$ano),
+    length((df_Estaduais %>% filter(ano == 2014))$ano),
+    length((df_Estaduais %>% filter(ano == 2015))$ano),
+    length((df_Estaduais %>% filter(ano == 2016))$ano),
+    length((df_Estaduais %>% filter(ano == 2017))$ano),
+    length((df_Estaduais %>% filter(ano == 2018))$ano),
+    length((df_Estaduais %>% filter(ano == 2019))$ano),
+    length((df_Estaduais %>% filter(ano == 2020))$ano),
+    length((df_Estaduais %>% filter(ano == 2021))$ano)
+  ),
+  Quantidade_concluintes_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_concluintes)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_concluintes))
+  ),
+  Quantidade_cursos_RFEPCT = c(
+    length((df_RFEPCT %>% filter(ano == 2009))$ano),
+    length((df_RFEPCT %>% filter(ano == 2010))$ano),
+    length((df_RFEPCT %>% filter(ano == 2011))$ano),
+    length((df_RFEPCT %>% filter(ano == 2012))$ano),
+    length((df_RFEPCT %>% filter(ano == 2013))$ano),
+    length((df_RFEPCT %>% filter(ano == 2014))$ano),
+    length((df_RFEPCT %>% filter(ano == 2015))$ano),
+    length((df_RFEPCT %>% filter(ano == 2016))$ano),
+    length((df_RFEPCT %>% filter(ano == 2017))$ano),
+    length((df_RFEPCT %>% filter(ano == 2018))$ano),
+    length((df_RFEPCT %>% filter(ano == 2019))$ano),
+    length((df_RFEPCT %>% filter(ano == 2020))$ano),
+    length((df_RFEPCT %>% filter(ano == 2021))$ano)
+  ),
+  Quantidade_concluintes_TOTAL = c(
+    sum(df_novo %>% filter(ano == 2009) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2010) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2011) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2012) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2013) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2014) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2015) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2016) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2017) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2018) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2019) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2020) %>% select(quantidade_concluintes)),
+    sum(df_novo %>% filter(ano == 2021) %>% select(quantidade_concluintes))
+  ),
+  Quantidade_concluintes_feminino_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_concluintes_feminino))
+  ),
+  Quantidade_concluintes_feminino_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_concluintes_feminino)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_concluintes_feminino))
+  ),
+  Quantidade_concluintes_feminino_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_concluintes_feminino)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_concluintes_feminino))
+  ),
+  Quantidade_concluintes_reserva_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_concluintes_reserva_vaga))
+  ),
+  Quantidade_concluintes_reserva_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_concluintes_reserva_vaga))
+  ),
+  Quantidade_concluintes_reserva_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_concluintes_reserva_vaga)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_concluintes_reserva_vaga))
+  ),
+  Quantidade_concluintes_nbrancos_Federais = c(
+    sum(df_Federais %>% filter(ano == 2009) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2010) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2011) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2012) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2013) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2014) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2015) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2016) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2017) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2018) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2019) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2020) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena)),
+    sum(df_Federais %>% filter(ano == 2021) %>% select(quantidade_concluintes_preta,
+                                                       quantidade_concluintes_parda,
+                                                       quantidade_concluintes_amarela,
+                                                       quantidade_concluintes_indigena))
+  ),
+  Quantidade_concluintes_nbrancos_Estaduais = c(
+    sum(df_Estaduais %>% filter(ano == 2009) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2010) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2011) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2012) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2013) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2014) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2015) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2016) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2017) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2018) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2019) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2020) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena)),
+    sum(df_Estaduais %>% filter(ano == 2021) %>% select(quantidade_concluintes_preta,
+                                                        quantidade_concluintes_parda,
+                                                        quantidade_concluintes_amarela,
+                                                        quantidade_concluintes_indigena))
+  ),
+  Quantidade_concluintes_nbrancos_RFEPCT = c(
+    sum(df_RFEPCT %>% filter(ano == 2009) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2010) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2011) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2012) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2013) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2014) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2015) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2016) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2017) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2018) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2019) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2020) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena)),
+    sum(df_RFEPCT %>% filter(ano == 2021) %>% select(quantidade_concluintes_preta,
+                                                     quantidade_concluintes_parda,
+                                                     quantidade_concluintes_amarela,
+                                                     quantidade_concluintes_indigena))
+  )
+)
+
+df_concluintes["Razao_concluintes_curso_Federais"] = 
+  df_concluintes$Quantidade_concluintes_Federais / 
+  df_concluintes$Quantidade_cursos_Federais
+
+df_concluintes["Razao_concluintes_curso_Estaduais"] =
+  df_concluintes$Quantidade_concluintes_Estaduais /
+  df_concluintes$Quantidade_cursos_Estaduais
+
+df_concluintes["Razao_concluintes_curso_RFEPCT"] =
+  df_concluintes$Quantidade_concluintes_RFEPCT /
+  df_concluintes$Quantidade_cursos_RFEPCT
+
+df_concluintes["Proporcao_concluintes_feminino_Federais"] =
+  df_concluintes$Quantidade_concluintes_feminino_Federais /
+  df_concluintes$Quantidade_concluintes_Federais
+
+df_concluintes["Proporcao_concluintes_feminino_Estaduais"] =
+  df_concluintes$Quantidade_concluintes_feminino_Estaduais /
+  df_concluintes$Quantidade_concluintes_Estaduais
+
+df_concluintes["Proporcao_concluintes_feminino_RFEPCT"] =
+  df_concluintes$Quantidade_concluintes_feminino_RFEPCT /
+  df_concluintes$Quantidade_concluintes_RFEPCT
+
+df_concluintes["Proporcao_concluintes_nbrancos_Federais"] =
+  df_concluintes$Quantidade_concluintes_nbrancos_Federais /
+  df_concluintes$Quantidade_concluintes_Federais
+
+df_concluintes["Proporcao_concluintes_nbrancos_Estaduais"] =
+  df_concluintes$Quantidade_concluintes_nbrancos_Estaduais /
+  df_concluintes$Quantidade_concluintes_Estaduais
+
+df_concluintes["Proporcao_concluintes_nbrancos_RFEPCT"] =
+  df_concluintes$Quantidade_concluintes_nbrancos_RFEPCT /
+  df_concluintes$Quantidade_concluintes_RFEPCT
+
+df_concluintes["Proporcao_concluintes_reserva_Federais"] =
+  df_concluintes$Quantidade_concluintes_reserva_Federais /
+  df_concluintes$Quantidade_concluintes_Federais
+
+df_concluintes["Proporcao_concluintes_reserva_Estaduais"] =
+  df_concluintes$Quantidade_concluintes_reserva_Estaduais /
+  df_concluintes$Quantidade_concluintes_Estaduais
+
+df_concluintes["Proporcao_concluintes_reserva_RFEPCT"] =
+  df_concluintes$Quantidade_concluintes_reserva_RFEPCT /
+  df_concluintes$Quantidade_concluintes_RFEPCT
+
+# Gráficos
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Quantidade_concluintes_TOTAL/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Concluintes Total (em milhares)") +
+  geom_bar(stat="identity", fill="gray") +
+  geom_line()
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Quantidade_concluintes_Federais/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Concluintes Universidades Federais (em milhares)") +
+  geom_bar(stat="identity", fill="red") +
+  geom_line()
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Quantidade_concluintes_Estaduais/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Concluintes Universidades Estaduais (em milhares)") +
+  geom_bar(stat="identity", fill="green") +
+  geom_line()
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Quantidade_concluintes_RFEPCT/1000, group=1)) +
+  labs(x="Ano", y="Quantidade de Concluintes RFEPCT (em milhares)") +
+  geom_bar(stat="identity", fill="blue") +
+  geom_line()
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Razao_concluintes_curso_Federais, group=1)) + 
+  labs(x="Ano", y="Razão Concluintes por Cursos - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Razao_concluintes_curso_Estaduais, group=1)) + 
+  labs(x="Ano", y="Razão Concluintes por Cursos - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Razao_concluintes_curso_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Razão Concluintes por Cursos - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_feminino_Federais, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Sexo Feminino - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_feminino_Estaduais, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Sexo Feminino - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_feminino_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Sexo Feminino - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_nbrancos_Federais, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Não Brancos - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_nbrancos_Estaduais, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Não Brancos - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_nbrancos_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Não Brancos - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_reserva_Federais, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Reserva de Vagas - Federais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_reserva_Estaduais, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Reserva de Vagas - Estaduais") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
+
+df_concluintes %>%
+  ggplot(aes(x=Ano, y=Proporcao_concluintes_reserva_RFEPCT, group=1)) + 
+  labs(x="Ano", y="Proporção Concluintes Reserva de Vagas - RFEPCT") +
+  geom_line() + 
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE)
