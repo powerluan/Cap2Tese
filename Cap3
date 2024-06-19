@@ -1,0 +1,228 @@
+# Carregamento de bibliotecas
+library(tidyverse)
+library(ggplot2)
+library(haven)
+library(psych)
+library(car)
+library(rstatix)
+
+# Localização do banco de dados
+setwd('G:/Meu Drive/Cursos/Docência/Doutorado em Educação/3_Tese/Dados/PNP')
+
+# Carregamento do banco de dados da PNP para 2021
+dados_2021 = read.csv2('2021_ano-base_microdados_eficiencia_academica_2022.csv')
+
+# Carregamento do banco de dados da PNP para 2019
+dados_2019 = read.csv2('2019_ano-base_microdados_eficiencia_academica_2020.csv')
+
+# Seleção dos dados para graduações presenciais para 2021
+dados_2021_grad = dados_2021 %>%
+  # Tipo de curso
+  filter((Tipo.de.Curso == 'Bacharelado')|(Tipo.de.Curso == 'Licenciatura')|(Tipo.de.Curso == 'Tecnologia')) %>%
+  # Modalidade Presencial
+  filter(Modalidade.de.Ensino == 'Educação Presencial') %>%
+  # Seleciona apenas situações de matrícula de interesse
+  filter((Situação.de.Matrícula == 'Abandono')|(Situação.de.Matrícula == 'Concluída')|
+           (Situação.de.Matrícula == 'Reprovado'))
+
+# Seleção dos dados para graduações presenciais para 2019
+dados_2019_grad = dados_2019 %>%
+  # Tipo de curso
+  filter((Tipo.de.Curso == 'Bacharelado')|(Tipo.de.Curso == 'Licenciatura')|(Tipo.de.Curso == 'Tecnologia')) %>%
+  # Modalidade Presencial
+  filter(Modalidade.de.Ensino == 'Educação Presencial') %>%
+  # Seleciona apenas situações de matrícula de interesse
+  filter((Situação.de.Matrícula == 'Abandono')|(Situação.de.Matrícula == 'Concluída')|
+           (Situação.de.Matrícula == 'Reprovado'))
+
+# Quantidades de estudantes que não declararam renda ou raça para 2021
+quantidades_2021 = dados_2021_grad %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == 'Não declarada',1,0)) %>%
+  mutate(Faixa.Etária = ifelse(Faixa.Etária == 'S/I',1,0)) %>%
+  mutate(Cor...Raça = ifelse(Cor...Raça == 'Não declarada',1,0))
+  
+quant_renda_na_2021 = sum(quantidades_2021$Renda.Familiar)
+quant_raca_na_2021 = sum(quantidades_2021$Cor...Raça)
+quant_idade_na_2021 = sum(quantidades_2021$Faixa.Etária)
+
+# Quantidades de estudantes que não declararam renda ou raça para 2019
+quantidades_2019 = dados_2019_grad %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == 'Não Declarada',1,0)) %>%
+  mutate(Faixa.Etária = ifelse(Faixa.Etária == 'S/I',1,0)) %>%
+  mutate(Cor...Raça = ifelse(Cor...Raça == 'Não declarada',1,0))
+
+quant_renda_na_2019 = sum(quantidades_2019$Renda.Familiar)
+quant_raca_na_2019 = sum(quantidades_2019$Cor...Raça)
+quant_idade_na_2019 = sum(quantidades_2019$Faixa.Etária)
+
+############################################# 2021 ##########################################
+
+# Tratamento dos dados
+dados_2021_grad2 = dados_2021_grad %>%
+  # Seleciona apenas idade diferente de NA
+  mutate(Faixa.Etária = ifelse(Faixa.Etária == 'S/I',1,0)) %>%
+  filter(Faixa.Etária == 0) %>%
+  # Seleciona apenas raça/cor declarada
+  filter(Cor...Raça != 'Não declarada') %>%
+  # Seleciona apenas renda declarada
+  filter(Renda.Familiar != 'Não declarada') %>%
+  #Seleciona variáveis de interesse
+  select(Cor...Raça,Idade,Renda.Familiar,Sexo,Situação.de.Matrícula) %>%
+  # Altera valores das variáveis
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '0<RFP<=0,5',0, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '0,5<RFP<=1,0',1, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '1,0<RFP<=1,5',2, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '1,5<RFP<=2,5',3, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '2,5<RFP<=3,5',4, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == 'RFP>3,5', 5, Renda.Familiar)) %>%
+  mutate(Situação.de.Matrícula = ifelse(((Situação.de.Matrícula == 'Abandono')|
+                                          (Situação.de.Matrícula == 'Reprovado')),1,
+                                        Situação.de.Matrícula)) %>%
+  mutate(Situação.de.Matrícula = ifelse(((Situação.de.Matrícula == 'Concluída')),0,
+                                        Situação.de.Matrícula)) %>%
+  # Altera nome das variáveis
+  rename(id = Idade, des = Situação.de.Matrícula, rfp = Renda.Familiar) %>%
+  # Cria colunas das dummies
+  mutate(fam = ifelse(((Cor...Raça == 'Amarela')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(fpa = ifelse(((Cor...Raça == 'Parda')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(fpr = ifelse(((Cor...Raça == 'Preta')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(fin = ifelse(((Cor...Raça == 'Indígena')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(mam = ifelse(((Cor...Raça == 'Amarela')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(mpa = ifelse(((Cor...Raça == 'Parda')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(mpr = ifelse(((Cor...Raça == 'Preta')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(min = ifelse(((Cor...Raça == 'Indígena')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(mbr = ifelse(((Cor...Raça == 'Branca')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(fbr = ifelse(((Cor...Raça == 'Branca')&(Sexo == 'Feminino')),1,0)) %>%
+  # Altera tipo das variáveis para númerico
+  transform(rfp = as.numeric(rfp), des = as.numeric(des), fam = as.numeric(fam),
+            fpa = as.numeric(fpa), fpr = as.numeric(fpr), fin = as.numeric(fin),
+            mam = as.numeric(mam), mpa = as.numeric(mpa), mpr = as.numeric(mpr),
+            min = as.numeric(min), mbr = as.numeric(mbr), fbr = as.numeric(fbr))
+
+# Quantidade de estudantes da amostra de acordo com agrupamentos
+quant_fam_2021 = sum(dados_2021_grad2$fam)
+quant_fpa_2021 = sum(dados_2021_grad2$fpa)
+quant_fpr_2021 = sum(dados_2021_grad2$fpr)
+quant_fin_2021 = sum(dados_2021_grad2$fin)
+quant_fbr_2021 = sum(dados_2021_grad2$fbr)
+quant_mam_2021 = sum(dados_2021_grad2$mam)
+quant_mpa_2021 = sum(dados_2021_grad2$mpa)
+quant_mpr_2021 = sum(dados_2021_grad2$mpr)
+quant_min_2021 = sum(dados_2021_grad2$min)
+quant_mbr_2021 = sum(dados_2021_grad2$mbr)
+total_2021 = quant_fam_2021 + quant_fpa_2021 + quant_fpr_2021 + quant_fin_2021 +
+  quant_fbr_2021 + quant_mam_2021 + quant_mpa_2021 + quant_mpr_2021 + quant_min_2021 +
+  quant_mbr_2021
+
+# Estatísticas descritivas
+descritivos_2021 = describe(dados_2021_grad2, omit = TRUE)
+descritivos_2021
+
+# Regressão logística
+fit_2021 <- glm(des ~ id + rfp + fam + fpa + fpr + fin + mam + mpa + mpr + min + mbr, 
+           data = dados_2021_grad2, family = "binomial")
+summary(fit_2021)
+
+## Teste de significância do Modelo
+qui_q_fit_2021 = list("Qui-quadrado_modelo" = fit_2021$null.deviance - fit_2021$deviance,
+                 "gl_modelo" = fit_2021$df.null - fit_2021$df.residual)
+qui_q_fit_2021$prob = 1 - pchisq(qui_q_fit_2021$`Qui-quadrado_modelo`, qui_q_fit_2021$gl_modelo)
+round(qui_q_fit_2021$prob,10)
+qui_q_fit_2021
+
+## Razão de Chance
+odds_ratio_2021 = exp(fit_2021$coefficients)
+round(odds_ratio_2021, 4)
+
+## Bootstrapping
+fit_boot_2021 = Boot(object = fit_2021, R = 2000, method = "case")
+
+ci_odds_ratio_2021 = exp(Confint(fit_boot_2021, level = 0.95, type = "bca"))
+ci_odds_ratio_2021 = round(ci_odds_ratio_2021, 3)
+ci_odds_ratio_2021
+
+############################################# 2019 ##########################################
+
+# Tratamento dos dados
+dados_2019_grad2 = dados_2019_grad %>%
+  # Seleciona apenas idade diferente de NA
+  mutate(Faixa.Etária = ifelse(Faixa.Etária == 'S/I',1,0)) %>%
+  filter(Faixa.Etária == 0) %>%
+  # Seleciona apenas raça/cor declarada
+  filter(Cor...Raça != 'Não declarada') %>%
+  # Seleciona apenas renda declarada
+  filter(Renda.Familiar != 'Não Declarada') %>%
+  #Seleciona variáveis de interesse
+  select(Cor...Raça,Idade,Renda.Familiar,Sexo,Situação.de.Matrícula) %>%
+  # Altera valores das variáveis
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '0<RFP<=0,5',0, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '0,5<RFP<=1,0',1, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '1,0<RFP<=1,5',2, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '1,5<RFP<=2,5',3, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == '2,5<RFP<=3,5',4, Renda.Familiar)) %>%
+  mutate(Renda.Familiar = ifelse(Renda.Familiar == 'RFP>3,5', 5, Renda.Familiar)) %>%
+  mutate(Situação.de.Matrícula = ifelse(((Situação.de.Matrícula == 'Abandono')|
+                                           (Situação.de.Matrícula == 'Reprovado')),1,
+                                        Situação.de.Matrícula)) %>%
+  mutate(Situação.de.Matrícula = ifelse(((Situação.de.Matrícula == 'Concluída')),0,
+                                        Situação.de.Matrícula)) %>%
+  # Altera nome das variáveis
+  rename(id = Idade, des = Situação.de.Matrícula, rfp = Renda.Familiar) %>%
+  # Cria colunas das dummies
+  mutate(fam = ifelse(((Cor...Raça == 'Amarela')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(fpa = ifelse(((Cor...Raça == 'Parda')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(fpr = ifelse(((Cor...Raça == 'Preta')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(fin = ifelse(((Cor...Raça == 'Indígena')&(Sexo == 'Feminino')),1,0)) %>%
+  mutate(mam = ifelse(((Cor...Raça == 'Amarela')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(mpa = ifelse(((Cor...Raça == 'Parda')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(mpr = ifelse(((Cor...Raça == 'Preta')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(min = ifelse(((Cor...Raça == 'Indígena')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(mbr = ifelse(((Cor...Raça == 'Branca')&(Sexo == 'Masculino')),1,0)) %>%
+  mutate(fbr = ifelse(((Cor...Raça == 'Branca')&(Sexo == 'Feminino')),1,0)) %>%
+  # Altera tipo das variáveis para númerico
+  transform(rfp = as.numeric(rfp), des = as.numeric(des), fam = as.numeric(fam),
+            fpa = as.numeric(fpa), fpr = as.numeric(fpr), fin = as.numeric(fin),
+            mam = as.numeric(mam), mpa = as.numeric(mpa), mpr = as.numeric(mpr),
+            min = as.numeric(min), mbr = as.numeric(mbr), fbr = as.numeric(fbr))
+
+# Quantidade de estudantes da amostra de acordo com agrupamentos
+quant_fam_2019 = sum(dados_2019_grad2$fam)
+quant_fpa_2019 = sum(dados_2019_grad2$fpa)
+quant_fpr_2019 = sum(dados_2019_grad2$fpr)
+quant_fin_2019 = sum(dados_2019_grad2$fin)
+quant_fbr_2019 = sum(dados_2019_grad2$fbr)
+quant_mam_2019 = sum(dados_2019_grad2$mam)
+quant_mpa_2019 = sum(dados_2019_grad2$mpa)
+quant_mpr_2019 = sum(dados_2019_grad2$mpr)
+quant_min_2019 = sum(dados_2019_grad2$min)
+quant_mbr_2019 = sum(dados_2019_grad2$mbr)
+total_2019 = quant_fam_2019 + quant_fpa_2019 + quant_fpr_2019 + quant_fin_2019 +
+  quant_fbr_2019 + quant_mam_2019 + quant_mpa_2019 + quant_mpr_2019 +
+  quant_min_2019 + quant_mbr_2019
+
+# Estatísticas descritivas
+descritivos_2019 = describe(dados_2019_grad2, omit = TRUE)
+descritivos_2019
+
+# Regressão logística
+fit_2019 <- glm(des ~ id + rfp + fam + fpa + fpr + fin + mam + mpa + mpr + min + mbr, 
+           data = dados_2019_grad2, family = "binomial")
+summary(fit_2019)
+
+## Teste de significância do Modelo
+qui_q_fit_2019 = list("Qui-quadrado_modelo" = fit_2019$null.deviance - fit_2019$deviance,
+                 "gl_modelo" = fit_2019$df.null - fit_2019$df.residual)
+qui_q_fit_2019$prob = 1 - pchisq(qui_q_fit_2019$`Qui-quadrado_modelo`, qui_q_fit_2019$gl_modelo)
+round(qui_q_fit_2019$prob,10)
+qui_q_fit_2019
+
+## Razão de Chance
+odds_ratio_2019 = exp(fit_2019$coefficients)
+round(odds_ratio_2019, 4)
+
+## Bootstrapping
+fit_boot_2019 = Boot(object = fit_2019, R = 2000, method = "case")
+
+ci_odds_ratio_2019 = exp(Confint(fit_boot_2019, level = 0.95, type = "bca"))
+ci_odds_ratio_2019 = round(ci_odds_ratio_2019, 3)
+ci_odds_ratio_2019
